@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a2533">
+  <title>SafeWayHome | Live route finder</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap');
+    :root { color-scheme: dark; --ink:#e8eff0; --muted:#a8bbc2; --paper:#071923; --white:#102a38; --green:#0b2532; --green-2:#54a9c2; --lime:#e5c69b; --line:#27434f; --font:'DM Sans','Segoe UI',sans-serif; --display:'Manrope','Segoe UI',sans-serif; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:linear-gradient(135deg,#06151e 0%,#0a2533 48%,#104057 100%); color:var(--ink); font:14px var(--font); }
+    button,input,select { font:inherit; }
+    button { cursor:pointer; }
+    .topbar { height:68px; padding:0 5.5vw; display:flex; align-items:center; justify-content:space-between; background:linear-gradient(105deg,#06151e 0%,#0b2c3b 56%,#165069 100%); color:#f2f5f3; border-bottom:1px solid #315262; }
+    .brand { display:flex; align-items:center; gap:11px; color:inherit; text-decoration:none; }
+    .brand-mark { width:36px; height:36px; display:grid; place-items:center; border-radius:10px; background:var(--lime); color:var(--green); }
+    .brand-name { font:800 16px var(--display); }
+    .brand-sub { margin-left:8px; color:#b7c9be; font-size:12px; }
+    .top-meta { display:flex; align-items:center; gap:10px; color:#d2dfd6; font-size:12px; }
+    .demo-dot { width:8px; height:8px; border-radius:50%; background:#e6c77b; box-shadow:0 0 0 4px #e6c77b20; }
+    main { max-width:1440px; margin:0 auto; padding:34px 5.5vw 52px; }
+    .intro { display:flex; align-items:end; justify-content:space-between; gap:24px; margin-bottom:25px; animation:rise .45s ease both; }
+    .eyebrow { color:var(--green-2); font-size:11px; font-weight:700; letter-spacing:1.4px; text-transform:uppercase; }
+    h1 { margin:8px 0 7px; font:800 31px/1.14 var(--display); }
+    .intro p { max-width:600px; margin:0; color:var(--muted); line-height:1.55; }
+    .data-note { max-width:300px; padding:10px 13px; border:1px solid #e6d5a7; border-radius:4px; background:#fff8e8; color:#785a1d; font-size:11px; line-height:1.45; }
+    .data-note strong { display:block; margin-bottom:2px; color:#694d16; font-size:11px; text-transform:uppercase; letter-spacing:.6px; }
+    .workspace { display:grid; grid-template-columns:minmax(0,1.55fr) minmax(340px,.9fr); align-items:start; gap:20px; }
+    .map-column { min-width:0; animation:rise .5s .06s ease both; }
+    .map-frame,.panel { overflow:hidden; border:1px solid #dce3d8; border-radius:7px; background:var(--white); box-shadow:0 8px 24px #183b3209; }
+    .map-head { min-height:53px; padding:0 17px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #dce3d8; background:#f9faf5; }
+    .map-title { display:flex; align-items:center; gap:8px; font-weight:700; }
+    .map-title svg { color:var(--green-2); }
+    .map-caption { color:var(--muted); font-size:11px; }
+    .map-view { padding:6px 9px; border:1px solid #dce3d8; border-radius:4px; background:#fffefa; color:var(--green); font-size:11px; font-weight:700; white-space:nowrap; }
+    .map-locate { position:absolute; z-index:500; right:12px; bottom:28px; padding:7px 10px; border:0; border-radius:4px; background:#fffefa; color:var(--green); box-shadow:0 1px 6px #0004; font-size:11px; font-weight:700; }
+    #map { display:block; width:100%; height:500px; background:#dfe5dc; }
+    .leaflet-tooltip.map-tooltip { padding:4px 7px; border:0; border-radius:3px; background:#fffefa; color:#183b32; box-shadow:0 2px 8px #0003; font:700 11px var(--font); }
+    .leaflet-tooltip.map-tooltip:before { display:none; }
+    .map-legend { padding:12px 16px; display:flex; flex-wrap:wrap; gap:17px; border-top:1px solid #dce3d8; background:#f9faf5; color:#55645b; font-size:11px; }
+    .legend-item { display:inline-flex; align-items:center; gap:7px; }
+    .legend-line { width:20px; height:4px; border-radius:4px; background:#ffd447; }
+    .legend-line.alt { background:#ff765e; }
+    .legend-dot { width:8px; height:8px; border:2px solid var(--green); border-radius:50%; background:var(--lime); }
+    .map-footnote { padding:11px 16px; color:#6c786f; font-size:11px; line-height:1.45; }
+    .map-footnote strong { color:#47594e; }
+    .panel { border-color:var(--line); animation:rise .5s .12s ease both; }
+    .panel-section { padding:18px; border-bottom:1px solid var(--line); }
+    .section-heading { margin:0 0 14px; font:700 15px var(--display); }
+    .field-label { display:block; margin:0 0 6px; color:#66756c; font-size:11px; font-weight:700; }
+    .location-row { display:grid; grid-template-columns:1fr 38px; gap:7px; margin-bottom:10px; }
+    .location-row.origin-row { grid-template-columns:1fr 38px 38px; }
+    input[type=text],select { width:100%; height:42px; padding:0 11px; border:1px solid #dce3d9; border-radius:4px; outline:0; background:white; color:var(--ink); }
+    select:focus,input:focus { border-color:var(--green-2); box-shadow:0 0 0 3px #2f66531c; }
+    .swap { display:grid; place-items:center; border:1px solid #dce3d9; border-radius:4px; background:#f5f7f1; color:var(--green-2); }
+    .control-label { margin:14px 0 7px; display:block; color:#66756c; font-size:11px; font-weight:700; }
+    .segment-control { display:grid; grid-template-columns:repeat(3,1fr); padding:3px; gap:3px; border:1px solid #dce3d9; border-radius:5px; background:#f0f3ec; }
+    .segment-control label { min-width:0; cursor:pointer; }
+    .segment-control input { position:absolute; opacity:0; pointer-events:none; }
+    .segment-control span { min-height:34px; display:flex; align-items:center; justify-content:center; gap:5px; border-radius:3px; color:#536359; font-size:11px; font-weight:600; }
+    .segment-control input:checked + span { background:#fffefa; color:var(--green); box-shadow:0 1px 4px #182a251c; }
+    .segment-control input:focus-visible + span { outline:2px solid var(--green-2); outline-offset:1px; }
+    .need-control { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+    .need-option { min-height:38px; padding:0 9px; display:flex; align-items:center; gap:7px; border:1px solid #dce3d9; border-radius:4px; background:#fff; font-size:11px; font-weight:600; }
+    .need-option input { accent-color:var(--green-2); }
+    .need-option.unavailable { color:#7e867f; background:#f4f5f1; cursor:not-allowed; }
+    .help-note { margin:7px 0 0; color:#7b6944; font-size:10px; line-height:1.4; }
+    .form-row { display:grid; grid-template-columns:1fr auto; align-items:end; gap:10px; margin-top:14px; }
+    .time-field { max-width:140px; }
+    .primary { min-height:42px; padding:0 16px; display:inline-flex; align-items:center; justify-content:center; gap:8px; border:0; border-radius:4px; background:var(--green); color:white; font-weight:700; transition:background .18s,transform .18s; }
+    .primary:hover { transform:translateY(-1px); background:#255344; }
+    .primary:disabled { cursor:wait; opacity:.65; transform:none; }
+    .error { display:none; margin-top:10px; padding:9px 10px; border-radius:4px; background:#fff0eb; color:#8d402b; font-size:12px; line-height:1.4; }
+    .routes-head { padding:17px 18px 9px; display:flex; align-items:center; justify-content:space-between; }
+    .routes-head .section-heading { margin:0; }
+    .route-count { color:var(--muted); font-size:11px; }
+    .routes { padding:0 12px 14px; display:grid; gap:8px; }
+    .route-card { width:100%; padding:12px; border:1px solid #e0e6dc; border-radius:5px; background:#fffefa; color:var(--ink); text-align:left; transition:border-color .16s,background .16s,transform .16s; }
+    .route-card:hover { transform:translateY(-1px); border-color:#9eb6a2; }
+    .route-card.selected { border-color:var(--green-2); background:#f4f8ef; box-shadow:inset 3px 0 var(--green-2); }
+    .route-top { display:flex; justify-content:space-between; align-items:start; gap:10px; }
+    .route-name { font-weight:700; }
+    .route-badge { padding:4px 7px; border-radius:3px; background:#eaf2d4; color:#46632b; font-size:10px; font-weight:700; white-space:nowrap; }
+    .route-details { margin-top:5px; color:var(--muted); font-size:11px; }
+    .route-safety { display:flex; align-items:center; gap:8px; margin-top:10px; }
+    .safety-track { flex:1; height:6px; overflow:hidden; border-radius:5px; background:#e7ebe2; }
+    .safety-fill { height:100%; border-radius:inherit; background:var(--green-2); }
+    .safety-value { min-width:36px; text-align:right; font-size:12px; font-weight:700; }
+    .route-reason { margin-top:5px; color:#718076; font-size:10px; }
+    .loading { padding:19px 8px; color:var(--muted); text-align:center; font-size:12px; }
+    .factors { padding:16px 18px 18px; background:#f7f8f3; }
+    .factors h3 { margin:0 0 12px; font:700 13px var(--display); }
+    .factor { display:grid; grid-template-columns:1fr auto; gap:4px 10px; margin-top:11px; align-items:center; }
+    .factor-name { font-size:11px; font-weight:600; }
+    .factor-value { color:#68766f; font-size:10px; text-align:right; }
+    .factor-track { grid-column:1/-1; height:5px; border-radius:5px; background:#e3e8df; }
+    .factor-fill { height:100%; border-radius:inherit; background:#83a87e; }
+    .factor-note { margin:12px 0 0; color:#77837a; font-size:10px; line-height:1.45; }
+    .navigation { display:none; position:absolute; z-index:1150; top:74px; left:16px; width:min(420px,calc(100% - 32px)); overflow:hidden; border:1px solid #456371; border-radius:10px; background:#0a202cf2; box-shadow:0 14px 36px #0009; backdrop-filter:blur(18px); }
+    .navigation.active { display:block; }
+    .nav-turn-banner { min-height:88px; padding:15px 17px; display:flex; align-items:center; gap:13px; background:linear-gradient(110deg,#17627a,#104359); color:#fff4e3; }
+    .nav-turn-icon { width:38px; height:38px; flex:0 0 38px; display:grid; place-items:center; border:1px solid #c0dce1aa; border-radius:50%; font:700 20px var(--display); }
+    .nav-turn-copy { min-width:0; }
+    .nav-turn-label { margin-bottom:4px; color:#c2e0e4; font-size:10px; font-weight:700; text-transform:uppercase; }
+    .next-turn { color:#fff4e3; font-size:17px; font-weight:700; line-height:1.3; }
+    .nav-bottom { padding:13px 15px 14px; }
+    .nav-trip-summary { display:flex; align-items:baseline; gap:9px; }
+    .nav-remaining-time { color:#f1d4aa; font:800 22px var(--display); }
+    .nav-remaining-distance,.nav-arrival { color:#c1cfd1; font-size:12px; }
+    .nav-progress { height:4px; margin:10px 0 11px; overflow:hidden; border-radius:4px; background:#34515e; }
+    .nav-progress-fill { width:0; height:100%; border-radius:inherit; background:#e5c69b; transition:width .35s ease; }
+    .navigation-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .nav-status { margin:0 0 9px; color:#aec1c6; font-size:11px; line-height:1.4; }
+    .nav-actions-spacer { flex:1; }
+    .nav-end { color:#ffd0c2; border-color:#765047; }
+    body.navigation-active .search-card,body.navigation-active .panel { display:none; }
+    body.navigation-active .navigation { position:fixed; top:76px; left:16px; }
+    body.navigation-active .map-tools { top:auto; bottom:24px; }
+    body.navigation-active .leaflet-top.leaflet-right { top:76px; }
+    .secondary { min-height:36px; padding:0 11px; border:1px solid #d6dfd4; border-radius:4px; background:#fff; color:var(--green); font-size:11px; font-weight:700; }
+    .secondary:disabled { opacity:.55; cursor:not-allowed; }
+    .signal-item { padding:9px 0; border-top:1px solid #e6eae2; font-size:11px; line-height:1.45; }
+    .signal-item a { color:var(--green-2); font-weight:600; }
+    .signal-meta { display:block; margin-top:3px; color:#7b877e; font-size:10px; }
+    .report-form { padding:15px 18px 18px; border-top:1px solid var(--line); }
+    .report-grid { display:grid; grid-template-columns:1fr auto; gap:8px; }
+    .report-note { margin:8px 0; color:#78847b; font-size:10px; line-height:1.45; }
+    .report-status { min-height:15px; margin:7px 0 0; color:#49664f; font-size:10px; }
+    .report-status.error { display:block; color:#8d402b; }
+    details { padding:13px 18px; }
+    summary { cursor:pointer; color:#4d6255; font-size:11px; font-weight:700; }
+    details p { margin:10px 0 2px; color:#69776e; font-size:11px; line-height:1.55; }
+    footer { max-width:1440px; margin:0 auto; padding:0 5.5vw 25px; color:#7b877e; font-size:10px; }
+    @keyframes rise { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+    @media (max-width:900px) { main { padding:28px 4vw 38px; } .workspace { grid-template-columns:minmax(0,1.2fr) minmax(310px,.9fr); gap:14px; } .topbar { padding:0 4vw; } }
+    @media (max-width:700px) {
+      .topbar { height:60px; } .brand-sub { display:none; } .top-meta { font-size:10px; }
+      main { padding:23px 16px 30px; } .intro { display:block; margin-bottom:19px; } h1 { font-size:26px; }
+      .intro p { font-size:13px; } .data-note { max-width:none; margin-top:14px; }
+      .workspace { grid-template-columns:1fr; gap:13px; } .map-column { grid-row:2; } .panel { grid-row:1; }
+      #map { height:390px; } .map-caption { max-width:125px; text-align:right; line-height:1.35; }
+      footer { padding:0 16px 22px; }
+    }
+    h1 { color:#f0dcc0; }
+    .brand-mark { background:#e5c69b; color:#112c39; }
+    .brand-sub,.top-meta { color:#c0d2d6; }
+    .eyebrow,.map-title svg { color:#73bfd2; }
+    .intro p,.map-caption,.route-count,.route-details { color:#afc0c5; }
+    .data-note { border-color:#756851; background:#2b302f; color:#e1d0b3; }
+    .data-note strong { color:#f0d8b2; }
+    .map-frame,.panel { border-color:#294753; background:linear-gradient(155deg,#102b38 0%,#0c2430 100%); box-shadow:0 12px 34px #0005; }
+    .map-head,.map-legend { border-color:#294753; background:#102b38; color:#d0dcdd; }
+    .map-view,.map-locate { border:1px solid #476675; background:#102b38; color:#f0d5aa; }
+    .map-footnote,.factor-note,.report-note,.nav-status { color:#a8bbc2; }
+    .map-footnote strong { color:#ead2aa; }
+    .leaflet-container { background:#0a2533; }
+    .leaflet-tooltip.map-tooltip { background:#122d3a; color:#f0d5aa; border:1px solid #c6aa7e; }
+    .leaflet-control-layers,.leaflet-bar a { border-color:#43616d !important; background:#102b38 !important; color:#f0d5aa !important; }
+    .leaflet-control-layers { color:#e8eff0 !important; box-shadow:0 2px 10px #0006; }
+    .leaflet-control-layers-separator { border-top-color:#43616d !important; }
+    .leaflet-top.leaflet-right { top:184px; right:16px; }
+    .map-legend { border-top:1px solid #294753; }
+    .legend-dot { border-color:#e5c69b; background:#e5c69b; }
+    .panel-section,.navigation,.report-form { border-color:#294753; }
+    .section-heading,.factors h3 { color:#f0dcc0; }
+    .field-label,.control-label { color:#c1cfd1; }
+    input[type=text],select { border-color:#355461; background:#091e29; color:#e8eff0; }
+    input::placeholder { color:#83999f; }
+    select option { background:#102a38; color:#e8eff0; }
+    select:focus,input:focus { border-color:#64b5cb; box-shadow:0 0 0 3px #64b5cb30; }
+    .swap,.secondary,.map-view { border-color:#3d5b68; background:#142f3c; color:#e5c69b; }
+    .segment-control { border-color:#355461; background:#081d28; }
+    .segment-control span { color:#afc0c5; }
+    .segment-control input:checked + span { background:#28617a; color:#fff4e3; box-shadow:0 1px 5px #0008; }
+    .need-option { border-color:#355461; background:#0b202b; color:#dbe4e4; }
+    .need-option.unavailable { background:#172a30; color:#85999e; }
+    .help-note { color:#ddc39d; }
+    .primary { background:#25647a; color:#fff6e8; }
+    .primary:hover { background:#337d93; }
+    .error { border:1px solid #825342; background:#3b2927; color:#ffd4c5; }
+    .route-card { border-color:#294753; background:#0d2632; color:#e8eff0; }
+    .route-card:hover { border-color:#6fb4c5; background:#123243; }
+    .route-card.selected { border-color:#e5c69b; background:linear-gradient(100deg,#173b4a,#102c39); box-shadow:inset 3px 0 #e5c69b; }
+    .route-badge { background:#e5c69b; color:#20313a; }
+    .route-reason,.signal-meta { color:#9eb1b7; }
+    .safety-track,.factor-track { background:#294753; }
+    .safety-fill,.factor-fill { background:#63b2c6; }
+    .factors { background:#102a37; }
+    .factor-value { color:#adbec2; }
+    .nav-turn-icon { color:#f0d5aa; }
+    .nav-progress { background:#294753; }
+    .nav-progress-fill { background:#e5c69b; }
+    .nav-end { color:#ffd0c2; border-color:#765047; }
+    .signal-item { border-color:#294753; color:#e0e8e8; }
+    .signal-item a { color:#85c9d8; }
+    .report-status { color:#b6d8bd; }
+    summary { color:#e5c69b; }
+    details p,footer { color:#9eb2b8; }
+    html,body { width:100%; height:100%; overflow:hidden; }
+    body { position:fixed; inset:0; height:100dvh; }
+    .topbar { position:absolute; z-index:1200; top:10px; left:14px; right:14px; width:auto; height:52px; padding:0 14px; border:1px solid #42616e; border-radius:10px; background:#071c28d9; backdrop-filter:blur(14px); }
+    main { width:100%; max-width:none; height:100dvh; margin:0; padding:0; overflow:hidden; }
+    .intro { display:none; }
+    .workspace { position:relative; display:block; width:100%; height:100%; }
+    .map-column { position:absolute; z-index:0; inset:0; animation:none; }
+    .map-frame { position:absolute; inset:0; overflow:hidden; border:0; border-radius:0; background:transparent; box-shadow:none; }
+    #map { width:100%; height:100dvh; }
+    .map-tools { position:absolute; z-index:1000; top:74px; right:16px; display:grid; gap:7px; justify-items:end; }
+    .map-tools .map-locate { position:static; right:auto; bottom:auto; }
+    .map-zoom { display:grid; overflow:hidden; border:1px solid #476675; border-radius:5px; box-shadow:0 2px 10px #0006; }
+    .map-zoom button { width:38px; height:36px; border:0; background:#102b38; color:#f0d5aa; font-size:20px; font-weight:600; line-height:1; }
+    .map-zoom button+button { border-top:1px solid #476675; }
+    .map-zoom button:hover,.map-tools .map-view:hover { background:#1a4254; }
+    .map-tool-row { display:flex; gap:7px; }
+    .map-attribution { position:absolute; z-index:800; left:14px; bottom:12px; padding:6px 9px; border:1px solid #385663; border-radius:5px; background:#081c28df; color:#c3d0d0; backdrop-filter:blur(10px); }
+    .search-card { position:absolute; z-index:1100; top:74px; left:16px; width:min(390px,calc(100% - 32px)); padding:16px; border:1px solid #456371; border-radius:10px; background:#0a202ceF; box-shadow:0 12px 34px #0008; backdrop-filter:blur(16px); }
+    .search-card .section-heading { margin-bottom:12px; }
+    .panel { position:absolute; z-index:1100; left:50%; bottom:14px; width:min(1000px,calc(100% - 28px)); max-height:min(39vh,390px); overflow:auto; border:1px solid #456371; border-radius:10px; background:#091e2beF; box-shadow:0 14px 40px #0009; backdrop-filter:blur(18px); transform:translateX(-50%); animation:none; scrollbar-color:#547482 #0b202d; }
+    .panel-section { border-color:#294753; }
+    .panel details { padding-top:10px; padding-bottom:10px; }
+    .bottom-controls { padding:12px 16px 10px; display:grid; grid-template-columns:minmax(220px,1fr) minmax(210px,1fr); align-items:end; gap:10px 18px; border-bottom:1px solid #294753; }
+    .bottom-controls .control-label { margin-top:0; }
+    .bottom-controls .help-note { grid-column:1/-1; margin:0; }
+    .panel .routes-head { padding-top:12px; }
+    .panel .routes { padding-bottom:6px; }
+    .panel .navigation,.panel .factors,.panel .report-form { background:transparent; }
+    .panel .map-caption { color:#afc0c5; }
+    .panel a { color:#85c9d8; }
+    @media (max-width:700px) {
+      .topbar { top:8px; left:10px; right:10px; height:48px; padding:0 11px; }
+      .brand-mark { width:32px; height:32px; }
+      .search-card { top:64px; left:10px; width:calc(100% - 20px); padding:12px; }
+      .search-card .section-heading { margin-bottom:9px; }
+      .bottom-controls { grid-template-columns:1fr; gap:8px; padding:10px 12px; }
+      .bottom-controls .help-note { grid-column:auto; }
+      .panel { bottom:8px; width:calc(100% - 16px); max-height:36vh; border-radius:9px; }
+      .map-tools { top:auto; right:12px; bottom:calc(36vh + 20px); }
+      .leaflet-top.leaflet-right { top:180px; right:12px; }
+      body.navigation-active .navigation { top:64px; left:10px; width:min(420px,calc(100% - 20px)); }
+      body.navigation-active .map-tools { bottom:18px; }
+      body.navigation-active .leaflet-top.leaflet-right { top:64px; }
+      .map-attribution { bottom:calc(36vh + 20px); left:10px; }
+    }
+    @media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms !important; transition-duration:.01ms !important; } }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="SafeWayHome home"><span class="brand-mark" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 32 32" fill="none"><path d="M4 25c4-3 7-3 11 0s7 3 13 0" stroke="#28617a" stroke-width="2.2" stroke-linecap="round"/><path d="M16 4.5c-5 0-8 3.6-8 8.1 0 5.6 8 13.4 8 13.4s8-7.8 8-13.4c0-4.5-3-8.1-8-8.1Z" fill="#0b3445"/><circle cx="16" cy="12.5" r="2.7" fill="#e5c69b"/></svg></span><span class="brand-name">SafeWayHome</span><span class="brand-sub">Walking route finder</span></a>
+    <div class="top-meta"><span class="demo-dot" aria-hidden="true"></span><span>OpenStreetMap route data</span></div>
+  </header>
+  <main>
+    <section class="intro">
+      <div><div class="eyebrow">City walking routes</div><h1>Find a way across town.</h1><p>Search real places to see pedestrian routes on satellite imagery. Compare distance and walking time before you set out.</p></div>
+      <aside class="data-note"><strong>Real routes, limited safety data</strong>Routes use OpenStreetMap. Live streetlight, incident and crowd feeds are not connected, so this app does not claim a route is safest.</aside>
+    </section>
+    <section class="workspace" aria-label="Route planner">
+      <section class="search-card" aria-label="Choose your trip">
+        <h2 class="section-heading">Plan your trip</h2>
+          <label class="field-label" for="origin">Starting point</label><div class="location-row origin-row"><input id="origin" type="text" value="Hawa Mahal, Jaipur" placeholder="Address, place or landmark" autocomplete="street-address" aria-label="Starting point"><button class="swap" id="use-current-origin" type="button" aria-label="Use current location as starting point" title="Use my location"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/></svg></button><button class="swap" id="swap" type="button" aria-label="Swap starting point and destination" title="Swap places"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M7 7h13l-3-3M17 17H4l3 3"/></svg></button></div>
+          <label class="field-label" for="destination">Destination</label><div class="location-row" style="grid-template-columns:1fr"><input id="destination" type="text" value="Jaipur Junction, Jaipur" placeholder="Address, place or landmark" autocomplete="street-address" aria-label="Destination"></div>
+          <div class="form-row"><span class="map-caption">Live route data · internet required</span><button class="primary" id="find-route" type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>Find routes</button></div>
+          <div class="error" id="error" role="alert"></div>
+      </section>
+      <div class="map-column"><div class="map-frame">
+        <div class="map" id="map" role="application" aria-label="Interactive satellite map with real walking routes"></div>
+        <div class="map-tools" aria-label="Map controls">
+          <div class="map-zoom"><button id="zoom-in" type="button" aria-label="Zoom in" title="Zoom in">+</button><button id="zoom-out" type="button" aria-label="Zoom out" title="Zoom out">−</button></div>
+          <div class="map-tool-row"><button class="map-view" id="city-view" type="button">City</button><button class="map-view" id="world-view" type="button">World</button><button class="map-locate" id="map-locate" type="button">My location</button></div>
+        </div>
+        <div class="map-caption map-attribution" id="map-caption">Satellite imagery: Esri · Routes: OpenStreetMap</div>
+      </div></div>
+      <section class="panel" aria-label="Route details">
+        <div class="bottom-controls">
+          <div><label class="control-label">Travel mode</label><div class="segment-control" role="radiogroup" aria-label="Travel mode">
+            <label><input type="radio" name="travel-mode" value="walk" checked><span>Walk</span></label>
+            <label><input type="radio" name="travel-mode" value="car"><span>Car</span></label>
+            <label><input type="radio" name="travel-mode" value="motorcycle"><span>Scooter / motorbike</span></label>
+          </div></div>
+          <div><label class="control-label">Route preference</label><div class="need-control" role="radiogroup" aria-label="Route preference">
+            <label class="need-option"><input type="radio" name="route-need" value="fastest" checked><span>Fastest route</span></label>
+            <label class="need-option unavailable" title="Safety feeds are not connected"><input type="radio" name="route-need" value="safest" disabled><span>Safest route</span></label>
+          </div></div>
+          <p class="help-note">Safety ranking is unavailable: live lighting and verified incident data are not connected.</p>
+        </div>
+        <div class="routes-head"><h2 class="section-heading">Your route options</h2><span class="route-count" id="route-count"></span></div>
+        <div class="routes" id="routes"><div class="loading">Enter two places to find walking routes.</div></div>
+        <div class="factors" id="factors" aria-live="polite"><h3>Safety data</h3><p class="factor-note">Lighting, pedestrian activity and incident history are not available from the connected route service. Route options are not safety-ranked.</p></div>
+        <div class="navigation" id="navigation" hidden>
+          <div class="navigation-actions"><button class="primary" id="start-navigation" type="button">Start navigation</button><button class="secondary" id="reroute" type="button" hidden>Reroute from here</button><button class="secondary" id="stop-navigation" type="button" hidden>Stop</button></div>
+          <p class="nav-status" id="nav-status" aria-live="polite">GPS navigation is off.</p><div class="next-turn" id="next-turn" hidden></div>
+          <details><summary>Turn-by-turn steps</summary><ol id="directions"></ol></details>
+        </div>
+        <section class="factors" id="helplines" aria-label="Emergency help"><h3>Emergency help</h3><p class="factor-note">Search a place to show relevant help numbers for that country.</p></section>
+        <section class="factors" id="incident-reports" aria-live="polite"><h3>Reports near this route</h3><p class="factor-note">Choose a route to check community reports within 50 m. Reports are unverified; no reports does not mean a road is incident-free.</p></section>
+        <form class="report-form" id="report-form"><h3 class="section-heading">Report a safety issue</h3>
+          <label class="field-label" for="report-category">What did you notice?</label>
+          <div class="report-grid"><select id="report-category" required><option value="poor_lighting">Poor lighting</option><option value="harassment">Harassment</option><option value="theft">Theft</option><option value="assault">Assault</option><option value="road_hazard">Road hazard</option><option value="other">Other</option></select><button class="secondary" id="report-location" type="button">Use my location</button></div>
+          <label class="field-label" for="report-note" style="margin-top:9px">Details (optional)</label><input id="report-note" type="text" maxlength="240" placeholder="Do not include names or personal details">
+          <p class="report-note">Reports are stored on this device and remain unverified. Your location is saved only when you submit.</p>
+          <button class="secondary" type="submit">Submit report</button><p class="report-status" id="report-status" role="status"></p>
+        </form>
+        <details><summary>Where does this route come from?</summary><p>Place search uses Photon and route geometry comes from the FOSSGIS OpenStreetMap pedestrian router. Satellite tiles come from Esri. These services provide road routing, not live lighting, population, traffic or crime reports. Check your surroundings and local guidance.</p></details>
+      </section>
+    </section>
+  </main>
+  <footer>SafeWayHome · OpenStreetMap walking routes · Satellite imagery by Esri</footer>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script>
+    const originInput = document.getElementById('origin');
+    const destinationInput = document.getElementById('destination');
+    const errorBox = document.getElementById('error');
+    const routeModeInputs = [...document.querySelectorAll('input[name="travel-mode"]')];
+    let trip = null, selectedRoute = 0, map = null, routeLayers = [], incidentLayers = [], overviewBounds = null;
+    let watchId = null, currentPosition = null, currentMarker = null, reportPosition = null;
+    const colors = ['#ffd447', '#ff765e', '#58b9ff', '#df8bff'];
+    const jaipurCenter = [26.9124, 75.7873];
+
+    function formatDuration(seconds) {
+      const minutes=Math.max(1,Math.round(seconds/60));
+      return minutes<60?`${minutes} min`:`${Math.floor(minutes/60)} hr ${minutes%60} min`;
+    }
+    function modeLabel(mode) {
+      return {walk:'Walking',car:'Four-wheel driving',motorcycle:'Motorcycle / scooter'}[mode] || 'Walking';
+    }
+    async function request(path) {
+      const response = await fetch(path), result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not load this information.');
+      return result;
+    }
+    function initializeMap() {
+      map=L.map('map',{
+        scrollWheelZoom:false,zoomControl:false,minZoom:2,maxZoom:20,zoomSnap:1,
+        preferCanvas:true,fadeAnimation:false,markerZoomAnimation:false,
+      }).setView(jaipurCenter,11);
+      const imagery=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
+        maxNativeZoom:19,maxZoom:20,updateWhenIdle:true,keepBuffer:2,
+        attribution:'Imagery &copy; Esri and its contributors'
+      });
+      const streets=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+        maxNativeZoom:19,maxZoom:20,updateWhenIdle:true,keepBuffer:2,
+        attribution:'&copy; OpenStreetMap contributors'
+      });
+      const roadLabels=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}',{
+        maxNativeZoom:19,maxZoom:20,opacity:.92,updateWhenIdle:true,keepBuffer:2,
+        attribution:'Road labels &copy; Esri'
+      });
+      imagery.addTo(map);
+      roadLabels.addTo(map);
+      L.control.layers({'Satellite':imagery,'Street map':streets},{'Road names and paths':roadLabels},{collapsed:true}).addTo(map);
+      map.fitBounds([[26.77,75.62],[27.06,76.00]],{padding:[8,8],maxZoom:10});
+    }
+    function drawMap(zoomToRoute=false) {
+      if(!trip||!map)return;
+      routeLayers.forEach(layer=>map.removeLayer(layer));routeLayers=[];
+      let selectedPath=null;
+      trip.routes.forEach((route,index)=>{
+        const points=route.coordinates.map(([longitude,latitude])=>[latitude,longitude]);
+        const selected=index===selectedRoute;
+        const color=route.fastest?colors[0]:colors[(index+1)%colors.length];
+        const outline=L.polyline(points,{color:'#17251f',weight:selected?11:8,opacity:selected?.9:.45,smoothFactor:2.5,lineCap:'round',lineJoin:'round'}).addTo(map);
+        const path=L.polyline(points,{color,weight:selected?7:4,opacity:selected?1:.68,smoothFactor:2.5,lineCap:'round',lineJoin:'round'}).addTo(map);
+        outline.bringToBack();routeLayers.push(outline,path);
+        if(selected)selectedPath=path;
+      });
+      const allPoints=trip.routes.flatMap(route=>route.coordinates.map(([longitude,latitude])=>[latitude,longitude]));
+      overviewBounds=L.latLngBounds(allPoints).pad(1.4);
+      for(const [place,label] of [[trip.origin,'Start'],[trip.destination,'Finish']]) {
+        const marker=L.circleMarker([place.latitude,place.longitude],{radius:8,color:'#fff',weight:3,fillColor:'#183b32',fillOpacity:1}).addTo(map);
+        marker.bindTooltip(label,{permanent:true,direction:'top',offset:[0,-8],className:'map-tooltip'});routeLayers.push(marker);
+      }
+      if(currentPosition) {
+        if(currentMarker)map.removeLayer(currentMarker);
+        currentMarker=L.circleMarker([currentPosition.latitude,currentPosition.longitude],{radius:7,color:'#fff',weight:3,fillColor:'#238acb',fillOpacity:1}).addTo(map);
+        currentMarker.bindTooltip('You',{permanent:true,direction:'top',className:'map-tooltip'});
+      }
+      incidentLayers.forEach(layer=>layer.addTo(map));
+      if(zoomToRoute&&selectedPath)map.fitBounds(selectedPath.getBounds(),{padding:[55,55],maxZoom:16});
+      else map.fitBounds(overviewBounds,{padding:[8,8],maxZoom:11});
+      document.getElementById('map-caption').textContent=`${trip.origin.name} → ${trip.destination.name}${zoomToRoute?' · route view':' · city overview'}`;
+    }
+    function renderRoutes() {
+      const container=document.getElementById('routes'); container.replaceChildren();
+      document.getElementById('route-count').textContent=`${trip.routes.length} options`;
+      const fastest=trip.routes[0].duration_seconds;
+      trip.routes.forEach((route,index)=>{
+        const button=document.createElement('button');button.type='button';button.className=`route-card${index===selectedRoute?' selected':''}`;button.setAttribute('aria-pressed',String(index===selectedRoute));
+        const top=document.createElement('div');top.className='route-top';
+        const name=document.createElement('span');name.className='route-name';name.textContent=route.label;top.append(name);
+        if(route.fastest){const badge=document.createElement('span');badge.className='route-badge';badge.textContent='Fastest';top.append(badge);}
+        const details=document.createElement('div');details.className='route-details';
+        const extra=route.duration_seconds-fastest;
+        details.textContent=`${formatDuration(route.duration_seconds)} · ${route.distance_km.toFixed(1)} km${extra>60?` · ${formatDuration(extra)} longer`:''}`;
+        const reason=document.createElement('div');reason.className='route-reason';reason.textContent=`${modeLabel(trip.mode)} · Safety has not been verified`;
+        button.append(top,details,reason);
+        button.addEventListener('click',()=>{selectedRoute=index;renderRoutes();renderFactors();renderDirections();drawMap(true);loadRouteIncidents();});container.append(button);
+      });
+    }
+    function renderFactors() {
+      const section=document.getElementById('factors');section.replaceChildren();
+      const heading=document.createElement('h3');heading.textContent='Safety data';section.append(heading);
+      const note=document.createElement('p');note.className='factor-note';note.textContent='This route is not safety-rated. The route service does not provide verified street lighting, footfall or incident data. Review the local reports below and use your judgement.';section.append(note);
+    }
+    function distanceMeters(a,b) {
+      const radians=value=>value*Math.PI/180;
+      const dLat=radians(b[1]-a[1]),dLon=radians(b[0]-a[0]);
+      const startLat=radians(a[1]),endLat=radians(b[1]);
+      const value=Math.sin(dLat/2)**2+Math.cos(startLat)*Math.cos(endLat)*Math.sin(dLon/2)**2;
+      return 6371000*2*Math.atan2(Math.sqrt(value),Math.sqrt(1-value));
+    }
+    function nearestRoutePoint(route,position) {
+      let nearestIndex=0,nearestDistance=Infinity;
+      route.coordinates.forEach((point,index)=>{
+        const distance=distanceMeters(point,[position.longitude,position.latitude]);
+        if(distance<nearestDistance){nearestDistance=distance;nearestIndex=index;}
+      });
+      return {index:nearestIndex,distance:nearestDistance};
+    }
+    function renderDirections() {
+      const route=trip&&trip.routes[selectedRoute];if(!route)return;
+      const list=document.getElementById('directions');list.replaceChildren();
+      for(const instruction of route.instructions||[]){
+        const item=document.createElement('li');item.textContent=instruction.text;
+        if(instruction.distance_m>0)item.textContent+=` · ${instruction.distance_m>=1000?`${(instruction.distance_m/1000).toFixed(1)} km`:`${Math.round(instruction.distance_m)} m`}`;
+        list.append(item);
+      }
+      document.getElementById('navigation').hidden=false;
+      document.getElementById('next-turn').hidden=!route.instructions?.length;
+      if(!route.instructions?.length)document.getElementById('nav-status').textContent='Turn-by-turn steps are not available for this route.';
+    }
+    function updateNavigation(position) {
+      currentPosition={latitude:position.coords.latitude,longitude:position.coords.longitude};
+      const route=trip.routes[selectedRoute],progress=nearestRoutePoint(route,currentPosition);
+      if(currentMarker)map.removeLayer(currentMarker);
+      currentMarker=L.circleMarker([currentPosition.latitude,currentPosition.longitude],{radius:8,color:'#fff',weight:3,fillColor:'#238acb',fillOpacity:1}).addTo(map);
+      currentMarker.bindTooltip('You',{permanent:true,direction:'top',className:'map-tooltip'});
+      const offRoute=progress.distance>120;
+      document.getElementById('nav-status').textContent=offRoute?`You are about ${Math.round(progress.distance)} m from this route.`:`Navigation on · ${Math.round(progress.distance)} m from route.`;
+      document.getElementById('reroute').hidden=!offRoute;
+      const steps=route.instructions||[];
+      let nextStep=steps.find(step=>{
+        if(!step.coordinates?.length)return false;
+        const index=nearestRoutePoint({coordinates:route.coordinates}, {longitude:step.coordinates[0][0],latitude:step.coordinates[0][1]}).index;
+        return index>=progress.index;
+      });
+      if(!nextStep&&steps.length)nextStep=steps[steps.length-1];
+      const turn=document.getElementById('next-turn');
+      if(nextStep){turn.textContent=nextStep.text;turn.hidden=false;}
+      if(offRoute)map.setView([currentPosition.latitude,currentPosition.longitude],Math.max(map.getZoom(),15));
+    }
+    function startNavigation() {
+      if(!trip)return;
+      if(!navigator.geolocation){document.getElementById('nav-status').textContent='This browser does not support live location.';return;}
+      document.getElementById('start-navigation').disabled=true;
+      document.getElementById('nav-status').textContent='Waiting for location permission…';
+      watchId=navigator.geolocation.watchPosition(position=>{
+        updateNavigation(position);
+        document.getElementById('stop-navigation').hidden=false;
+      },error=>{
+        document.getElementById('start-navigation').disabled=false;
+        document.getElementById('nav-status').textContent=error.code===1?'Location permission was not granted.': 'Could not get your location. Check device location settings.';
+      },{enableHighAccuracy:true,maximumAge:5000,timeout:15000});
+    }
+    function stopNavigation() {
+      if(watchId!==null)navigator.geolocation.clearWatch(watchId);
+      watchId=null;document.getElementById('start-navigation').disabled=false;
+      document.getElementById('stop-navigation').hidden=true;document.getElementById('reroute').hidden=true;
+      document.getElementById('nav-status').textContent='GPS navigation is off.';
+      if(currentMarker){map.removeLayer(currentMarker);currentMarker=null;}currentPosition=null;
+    }
+    function locateUser(onSuccess,onFailure) {
+      if(!navigator.geolocation){if(onFailure)onFailure();else{errorBox.textContent='Location is not available in this browser.';errorBox.style.display='block';}return;}
+      navigator.geolocation.getCurrentPosition(position=>{
+        const coords={latitude:position.coords.latitude,longitude:position.coords.longitude};
+        if(!Number.isFinite(coords.latitude)||!Number.isFinite(coords.longitude)){if(onFailure)onFailure();else{errorBox.textContent='The browser returned an invalid location.';errorBox.style.display='block';}return;}
+        currentPosition=coords;
+        if(onSuccess)onSuccess(coords);
+        else {drawMap();map.setView([coords.latitude,coords.longitude],16);}
+      },()=>{if(onFailure)onFailure();else{errorBox.textContent='Could not get your location. Check location permission and try again.';errorBox.style.display='block';}},{enableHighAccuracy:true,timeout:15000,maximumAge:10000});
+    }
+    function renderHelplines() {
+      const section=document.getElementById('helplines');section.replaceChildren();
+      const heading=document.createElement('h3');heading.textContent='Emergency help';section.append(heading);
+      const country=trip.destination.country_code||trip.origin.country_code;
+      if(country==='IN'){
+        for(const [name,number,description] of [['Emergency services','112','Police, fire and medical emergency'],['Women helpline','181','Women in distress in India']]){
+          const line=document.createElement('p');line.className='factor-note';
+          const link=document.createElement('a');link.href=`tel:${number}`;link.textContent=`${name}: ${number}`;line.append(link,` · ${description}`);section.append(line);
+        }
+        const note=document.createElement('p');note.className='factor-note';note.textContent='India helplines. Confirm local service availability; use your local emergency number outside India.';section.append(note);
+      }else{
+        const note=document.createElement('p');note.className='factor-note';note.textContent='Call the local emergency number for your area. This app does not yet resolve verified helplines for this country.';section.append(note);
+      }
+    }
+    function renderRouteIncidents(data) {
+      const section=document.getElementById('incident-reports');section.replaceChildren();
+      incidentLayers.forEach(layer=>map.removeLayer(layer));incidentLayers=[];
+      const heading=document.createElement('h3');heading.textContent='Reports near this route';section.append(heading);
+      if(!data.reports.length){
+        const empty=document.createElement('p');empty.className='factor-note';
+        empty.textContent='No community reports within 50 m of this route. This is not a complete or verified incident record.';section.append(empty);return;
+      }
+      for(const report of data.reports){
+        const item=document.createElement('div');item.className='signal-item';
+        item.textContent=`${report.category.replaceAll('_',' ')} · about ${report.distance_to_route_m} m from route${report.note?` · ${report.note}`:''}`;
+        const meta=document.createElement('span');meta.className='signal-meta';meta.textContent=`Community report · ${new Date(report.created_at).toLocaleString()} · unverified`;item.append(meta);section.append(item);
+        const marker=L.circleMarker([report.latitude,report.longitude],{radius:7,color:'#fff',weight:2,fillColor:'#e2634b',fillOpacity:.95});
+        const popup=document.createElement('div'),title=document.createElement('strong'),note=document.createElement('p');
+        title.textContent=`Unverified report: ${report.category.replaceAll('_',' ')}`;note.textContent=report.note||'No additional details.';popup.append(title,note);
+        marker.bindPopup(popup);incidentLayers.push(marker);marker.addTo(map);
+      }
+      const note=document.createElement('p');note.className='factor-note';note.textContent='Reports are user-submitted and unverified. They are not official incident records.';section.append(note);
+    }
+    async function loadRouteIncidents() {
+      if(!trip)return;
+      const section=document.getElementById('incident-reports');
+      section.innerHTML='<h3>Reports near this route</h3><p class="factor-note">Checking reports on this road…</p>';
+      const route=trip.routes[selectedRoute];
+      try{
+        const response=await fetch('/api/route-incidents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({city:trip.destination.city||trip.origin.city,coordinates:route.coordinates})});
+        const result=await response.json();if(!response.ok)throw new Error(result.error||'Could not check route reports.');
+        renderRouteIncidents(result);
+      }catch(error){section.innerHTML='<h3>Reports near this route</h3>';const note=document.createElement('p');note.className='factor-note';note.textContent=error.message;section.append(note);}
+    }
+    async function findRoutes(currentStart=null) {
+      const button=document.getElementById('find-route');errorBox.style.display='none';errorBox.textContent='';button.disabled=true;button.textContent='Finding routes…';
+      document.getElementById('routes').innerHTML='<div class="loading">Searching for available routes…</div>';
+      try{
+        if(currentStart&&(!Number.isFinite(currentStart.latitude)||!Number.isFinite(currentStart.longitude)))throw new Error('Current location is not available. Check location permission and try again.');
+        const mode=routeModeInputs.find(input=>input.checked).value;
+        const params=new URLSearchParams({from:currentStart?'Current location':originInput.value,to:destinationInput.value,mode});
+        if(currentStart){params.set('from_lat',currentStart.latitude);params.set('from_lon',currentStart.longitude);}
+        trip=await request(`/api/routes?${params}`);selectedRoute=0;renderRoutes();renderFactors();renderDirections();renderHelplines();drawMap();loadRouteIncidents();
+      }catch(error){errorBox.textContent=error.message;errorBox.style.display='block';document.getElementById('routes').innerHTML='<div class="loading">No routes to show yet.</div>';document.getElementById('route-count').textContent='';}
+      finally{button.disabled=false;button.innerHTML='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>Find routes';}
+    }
+    document.getElementById('find-route').addEventListener('click',()=>findRoutes());
+    routeModeInputs.forEach(input=>input.addEventListener('change',()=>findRoutes()));
+    document.getElementById('start-navigation').addEventListener('click',startNavigation);
+    document.getElementById('stop-navigation').addEventListener('click',stopNavigation);
+    document.getElementById('reroute').addEventListener('click',()=>{if(currentPosition)findRoutes(currentPosition);});
+    document.getElementById('map-locate').addEventListener('click',event=>{L.DomEvent.stopPropagation(event);locateUser();});
+    document.getElementById('use-current-origin').addEventListener('click',()=>locateUser(coords=>{originInput.value='Current location';findRoutes(coords);},()=>{findRoutes();}));
+    document.getElementById('zoom-in').addEventListener('click',()=>map.zoomIn());
+    document.getElementById('zoom-out').addEventListener('click',()=>map.zoomOut());
+    document.getElementById('world-view').addEventListener('click',()=>{map.setView([20,0],2);document.getElementById('map-caption').textContent='World view · zoom in to explore';});
+    document.getElementById('city-view').addEventListener('click',()=>{
+      if(overviewBounds){map.fitBounds(overviewBounds,{padding:[8,8],maxZoom:11});document.getElementById('map-caption').textContent=`${trip.origin.name} → ${trip.destination.name} · city overview`;}
+    });
+    document.getElementById('swap').addEventListener('click',()=>{const oldOrigin=originInput.value;originInput.value=destinationInput.value;destinationInput.value=oldOrigin;});
+    document.getElementById('report-location').addEventListener('click',()=>locateUser(coords=>{reportPosition=coords;document.getElementById('report-status').textContent='Location ready. It is shared only when you submit.';}));
+    document.getElementById('report-form').addEventListener('submit',async event=>{
+      event.preventDefault();
+      const status=document.getElementById('report-status');
+      if(!reportPosition){status.className='report-status error';status.textContent='Choose “Use my location” before submitting.';return;}
+      if(!trip){status.className='report-status error';status.textContent='Find a route first so we know the city.';return;}
+      status.className='report-status';status.textContent='Saving report…';
+      const city=trip.destination.city||trip.origin.city;
+      try{
+        const response=await fetch('/api/reports',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({city,latitude:reportPosition.latitude,longitude:reportPosition.longitude,category:document.getElementById('report-category').value,note:document.getElementById('report-note').value})});
+        const result=await response.json();if(!response.ok)throw new Error(result.error||'Could not save report.');
+        status.textContent='Report saved on this device as unverified.';document.getElementById('report-note').value='';await loadRouteIncidents();
+      }catch(error){status.className='report-status error';status.textContent=error.message;}
+    });
+    (async function init(){
+      try{initializeMap();await findRoutes();map.invalidateSize();}
+      catch(error){errorBox.textContent=error.message;errorBox.style.display='block';document.getElementById('routes').innerHTML='<div class="loading">Could not load walking routes.</div>';}
+    })();
+  </script>
+</body>
+</html>

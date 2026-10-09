@@ -1,0 +1,8 @@
+# Safe Route Finder - dependencies
+#
+# The core engine is pure standard library (Python 3.8+). Nothing to install
+# for the CLI, the safety model or the comparison report.
+#
+# Optional extras:
+folium>=1.0        # interactive HTML route maps:  --map route.html
+matplotlib>=3.5    # static PNG route maps (fallback if folium is missing)
